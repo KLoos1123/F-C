@@ -1,0 +1,90 @@
+name: Subsidie-opdrachten scrapers
+
+on:
+  schedule:
+    - cron: '0 6,12 * * *'   # 06:00 en 12:00 UTC (zomertijd NL: 08:00 en 14:00)
+  workflow_dispatch:
+
+# Nooit twee runs tegelijk, anders vechten ze om tenders.db
+concurrency:
+  group: scrapers
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Dependencies installeren
+        run: |
+          pip install -r requirements.txt
+          playwright install --with-deps chromium
+
+      - name: Scrapers draaien
+        env:
+          MERCELL_EMAIL: ${{ secrets.MERCELL_EMAIL }}
+          MERCELL_WACHTWOORD: ${{ secrets.MERCELL_WACHTWOORD }}
+          STRIIVE_EMAIL: ${{ secrets.STRIIVE_EMAIL }}
+          STRIIVE_WACHTWOORD: ${{ secrets.STRIIVE_WACHTWOORD }}
+          MAGNIT_EMAIL: ${{ secrets.MAGNIT_EMAIL }}
+          MAGNIT_WACHTWOORD: ${{ secrets.MAGNIT_WACHTWOORD }}
+          FREELANCE_EMAIL: ${{ secrets.FREELANCE_EMAIL }}
+          FREELANCE_WACHTWOORD: ${{ secrets.FREELANCE_WACHTWOORD }}
+          STEDINVMS_EMAIL: ${{ secrets.STEDINVMS_EMAIL }}
+          STEDINVMS_WACHTWOORD: ${{ secrets.STEDINVMS_WACHTWOORD }}
+        run: python run.py
+
+      - name: CSV en debug uploaden
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tenders
+          path: |
+            tenders.csv
+            tenders_nieuw.csv
+            tenders_subsidies.csv
+            web/tenders.json
+            debug_*.png
+          if-no-files-found: ignore
+
+      - name: Database en dashboard-exports terugcommitten
+        if: always()
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add tenders.db web/tenders.json web/beschrijvingen.json web/samenvatting.json
+          git diff --staged --quiet && echo "geen wijzigingen" && exit 0
+          git commit -m "Opdrachten bijgewerkt $(date -u +%F)"
+          git pull --rebase --autostash
+          git push
+
+      - name: Pages configureren
+        if: always()
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: web/ uploaden (dashboard + tenders.json)
+        if: always()
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+
+      - name: Deployen naar Pages
+        id: deployment
+        if: always()
+        uses: actions/deploy-pages@v4

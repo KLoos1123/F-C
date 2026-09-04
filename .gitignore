@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+debug_*.png
+tenders.csv
+tenders_nieuw.csv
+tenders_subsidies.csv
+dashboard.html

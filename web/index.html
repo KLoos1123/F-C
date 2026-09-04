@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Profource · Subsidiemarkt Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg1:#101b28; --bg2:#14212f; --bg3:#192738;
+    --panel:#1b2b3d; --border:#2a3a4d;
+    --blauw:#199DD9; --blauw-l:#4ab8e6; --indigo:#11448D; --violet:#83007D; --magenta:#E9167D; --groen:#1fae6a;
+    --text:#eef3f8; --sub:#cfe0f0; --muted:#8ea2b8; --dim:#5f7690;
+    color-scheme: dark;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    font-family:'IBM Plex Sans',sans-serif; color:var(--text);
+    background:
+      radial-gradient(1200px circle at 88% -8%, rgba(25,157,217,0.14), transparent 55%),
+      radial-gradient(900px circle at -5% 8%, rgba(17,68,141,0.20), transparent 55%),
+      linear-gradient(180deg,var(--bg1) 0%,var(--bg2) 55%,var(--bg3) 100%);
+    background-attachment:fixed;
+    padding:28px 32px 60px; min-height:100vh;
+  }
+  a{ color:var(--blauw); text-decoration:none; }
+  a:hover{ color:var(--magenta); }
+  h1,h2{ font-family:'Archivo',sans-serif; }
+  .topbar{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px;
+    padding-bottom:20px; margin-bottom:24px; border-bottom:1px solid rgba(255,255,255,0.08); }
+  .title-block h1{ font-size:18px; font-weight:600; margin:0; }
+  .title-block .subtitle{ font-size:11px; color:var(--dim); margin-top:4px; letter-spacing:.05em; text-transform:uppercase; }
+  .topmeta{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; font-size:12px; color:var(--muted); }
+  .refresh-btn{ font-size:12px; padding:8px 16px; border-radius:8px; border:1px solid rgba(25,157,217,0.4); background:rgba(25,157,217,0.10); color:var(--blauw); cursor:pointer; font-weight:600; }
+  .refresh-btn:hover{ background:rgba(25,157,217,0.18); }
+
+  .cards{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:20px; }
+  .card{ background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:16px 18px; }
+  .card .label{ font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:8px; }
+  .card .value{ font-family:'Archivo',sans-serif; font-size:30px; font-weight:700; line-height:1; }
+  .card .sub{ font-size:11px; color:var(--dim); margin-top:6px; }
+  .card.hi .value{ color:var(--blauw); }
+
+  .layout{ display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+  .panel{ background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:16px 18px; }
+  .panel h2{ font-size:14px; font-weight:600; margin:0 0 12px 0; }
+  .bars{ display:flex; flex-direction:column; gap:8px; }
+  .bar-row{ display:grid; grid-template-columns:170px 1fr 40px; align-items:center; gap:10px; font-size:12px; }
+  .bar-row .lbl{ color:var(--sub); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .bar-track{ height:8px; background:rgba(255,255,255,0.06); border-radius:5px; overflow:hidden; }
+  .bar-fill{ height:100%; background:linear-gradient(90deg,var(--blauw),var(--blauw-l)); border-radius:5px; }
+  .bar-row .cnt{ text-align:right; color:var(--muted); }
+
+  .filters{ display:flex; flex-wrap:wrap; gap:12px; align-items:center; background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:14px 16px; margin-bottom:14px; }
+  .filters label{ font-size:11px; color:var(--muted); margin-right:6px; }
+  select, input[type=text]{ font-family:'IBM Plex Sans',sans-serif; font-size:12px; padding:7px 10px; border-radius:8px; border:1px solid var(--border); background:var(--bg2); color:var(--text); }
+  input[type=text]{ min-width:220px; padding:8px 12px; }
+  select:focus, input:focus{ outline:2px solid var(--blauw); outline-offset:1px; }
+  .toggle{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); cursor:pointer; }
+  .toggle input{ accent-color:var(--blauw); }
+  .csv-btn{ font-size:12px; padding:8px 14px; border-radius:8px; border:1px solid var(--border); background:var(--bg2); color:var(--sub); cursor:pointer; }
+  .csv-btn:hover{ border-color:var(--blauw); color:var(--text); }
+
+  .table-wrap{ background:var(--panel); border:1px solid var(--border); border-radius:14px; overflow-x:auto; }
+  table{ width:100%; border-collapse:collapse; font-size:12px; min-width:900px; }
+  th{ text-align:left; padding:10px 12px; color:var(--muted); font-weight:600; border-bottom:1px solid var(--border); cursor:pointer; white-space:nowrap; position:sticky; top:0; background:var(--panel); }
+  th:hover{ color:var(--text); }
+  td{ padding:10px 12px; border-bottom:1px solid rgba(255,255,255,0.05); vertical-align:top; }
+  tbody tr:hover{ background:rgba(255,255,255,0.03); }
+  tbody tr.clickable{ cursor:pointer; }
+  .titel-cel a{ color:var(--text); font-weight:500; }
+  .titel-cel a:hover{ color:var(--blauw); }
+  .chip-cat{ display:inline-block; background:rgba(25,157,217,0.14); color:#9fc4ec; border:1px solid rgba(25,157,217,0.3); border-radius:999px; padding:2px 8px; font-size:10px; margin:1px; white-space:nowrap; }
+  .score{ font-weight:700; font-family:'Archivo',sans-serif; }
+  .s-hot{ color:var(--magenta); } .s-warm{ color:var(--blauw); } .s-cool{ color:var(--dim); }
+  .detail-row td{ background:var(--bg2); font-size:12px; color:var(--sub); white-space:pre-wrap; }
+  .footer-row{ display:flex; align-items:center; justify-content:space-between; margin-top:12px; font-size:12px; color:var(--muted); }
+  .pager button{ font-size:12px; padding:6px 12px; border-radius:6px; border:1px solid var(--border); background:var(--bg2); color:var(--sub); cursor:pointer; margin:0 4px; }
+  .pager button:disabled{ opacity:.4; cursor:default; }
+  .verlopen{ color:var(--dim); text-decoration:line-through; }
+  .disclaimer{ font-size:11px; color:var(--dim); margin-top:14px; }
+  .empty{ padding:30px; text-align:center; color:var(--dim); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="title-block">
+    <h1>Subsidiemarkt Monitor</h1>
+    <div class="subtitle">Profource · interim-/freelance-opdrachten met subsidie- &amp; financial-control-relevantie</div>
+  </div>
+  <div class="topmeta">
+    <span id="lastUpdated">Laatst bijgewerkt: -</span>
+    <button class="refresh-btn" onclick="location.reload()">Ververs</button>
+  </div>
+</div>
+
+<div class="cards">
+  <div class="card hi"><div class="label">Subsidie-relevant</div><div class="value" id="cardRelevant">-</div><div class="sub" id="cardRelevantSub">-</div></div>
+  <div class="card"><div class="label">Totaal opdrachten (alle bronnen)</div><div class="value" id="cardTotaal">-</div><div class="sub">over alle gescrapete platformen</div></div>
+  <div class="card"><div class="label">Nieuw deze week</div><div class="value" id="cardNieuw">-</div><div class="sub">subsidie-relevant, sinds 7 dagen</div></div>
+  <div class="card"><div class="label">Sluit binnen 7 dagen</div><div class="value" id="cardUrgent">-</div><div class="sub">subsidie-relevant, met deadline</div></div>
+</div>
+
+<div class="layout">
+  <div class="panel">
+    <h2>Per categorie</h2>
+    <div class="bars" id="catBars"></div>
+  </div>
+  <div class="panel">
+    <h2>Per maand (trend)</h2>
+    <div class="bars" id="maandBars"></div>
+  </div>
+</div>
+
+<div class="filters">
+  <div><label>Categorie</label><select id="catFilter"><option value="">Alle</option></select></div>
+  <div><label>Bron</label><select id="bronFilter"><option value="">Alle</option></select></div>
+  <div><label>Sorteer</label>
+    <select id="sortFilter">
+      <option value="score-desc">Score (hoog→laag)</option>
+      <option value="datum-desc">Nieuwste eerst</option>
+      <option value="deadline-asc">Deadline (dichtstbij)</option>
+    </select>
+  </div>
+  <input type="text" id="searchInput" placeholder="Zoek op titel of organisatie...">
+  <label class="toggle"><input type="checkbox" id="toonNietRelevant"> Toon ook niet-relevante</label>
+  <label class="toggle"><input type="checkbox" id="verbergVerlopen" checked> Verberg verlopen</label>
+  <button class="csv-btn" id="csvBtn">Exporteer CSV</button>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th data-key="score">Score</th>
+        <th data-key="datum">Datum</th>
+        <th data-key="deadline">Deadline</th>
+        <th data-key="organisatie">Organisatie</th>
+        <th data-key="titel">Titel</th>
+        <th data-key="categorieen">Categorie</th>
+        <th data-key="bron">Bron</th>
+        <th data-key="locatie">Locatie</th>
+        <th data-key="status">Status</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+</div>
+
+<div class="footer-row">
+  <div id="resultCount">-</div>
+  <div class="pager">
+    <button id="prevBtn">Vorige</button>
+    <span id="pageInfo"></span>
+    <button id="nextBtn">Volgende</button>
+  </div>
+</div>
+<div class="disclaimer">Score weegt trefwoord-matches (titel telt zwaarder dan omschrijving) en urgentie: met een deadline telt "sluit binnenkort" zwaarder. "Toon ook niet-relevante" laat opdrachten zien die op geen van de trefwoorden matchten. Indicatie op basis van trefwoordherkenning, geen garantie -- controleer titel/omschrijving bij twijfel.</div>
+
+<script>
+/* ===================== data ===================== */
+let RAW = { rows: [] };
+let BESCHR = {};
+let SAMENVATTING = null;
+
+const state = {
+  cat:'', bron:'', search:'', sort:'score-desc',
+  toonNietRelevant:false, verbergVerlopen:true, page:1, pageSize:50,
+  openRow:null,
+};
+
+/* ===================== helpers ===================== */
+function esc(s){ return String(s).replace(/[&<>"']/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtDate(iso){
+  if(!iso) return '-';
+  const d=new Date(iso); if(isNaN(d.getTime())) return String(iso).slice(0,10);
+  return d.toLocaleDateString('nl-NL',{day:'2-digit',month:'2-digit',year:'numeric'});
+}
+
+/* ===================== verrijking ===================== */
+function enrichRow(r){
+  const titel = r.titel || '(geen titel)';
+  const organisatie = r.organisatie || '-';
+  const categorieen = (r.subsidie_categorieen || '').split(', ').filter(Boolean);
+  const _pub = r.publicatiedatum ? new Date(r.publicatiedatum).getTime()
+             : (r.eerst_gezien ? new Date(r.eerst_gezien).getTime() : null);
+  const _deadline = r.deadline ? new Date(r.deadline).getTime() : null;
+  const now = Date.now();
+  const dagenTotDeadline = (_deadline!=null && !isNaN(_deadline)) ? Math.floor((_deadline-now)/86400000) : null;
+  const verlopen = dagenTotDeadline!=null && dagenTotDeadline<0;
+  const leeftijdDagen = (_pub!=null && !isNaN(_pub)) ? (now-_pub)/86400000 : null;
+
+  let urgentieBonus = 6;
+  if(dagenTotDeadline!=null){
+    if(dagenTotDeadline<0) urgentieBonus=-20;
+    else if(dagenTotDeadline<=3) urgentieBonus=20;
+    else if(dagenTotDeadline<=7) urgentieBonus=15;
+    else if(dagenTotDeadline<=21) urgentieBonus=10;
+    else urgentieBonus=5;
+  } else if(leeftijdDagen!=null){
+    urgentieBonus = Math.round(10 - Math.min(10, leeftijdDagen/7));
+  }
+
+  return {
+    bron: r.bron || 'onbekend', tender_id: String(r.tender_id||''),
+    titel, organisatie, status: r.status || '-', url: r.url || '',
+    locatie: r.locatie || '-', deadline: r.deadline || '', publicatiedatum: r.publicatiedatum || '',
+    subsidieRelevant: !!r.subsidie_relevant, categorieen,
+    trefwoorden: r.subsidie_trefwoorden || '',
+    baseScore: r.subsidie_score || 0,
+    score: Math.max(0, Math.min(100, (r.subsidie_score||0)*10 + urgentieBonus)),
+    datum: (_pub!=null && !isNaN(_pub)) ? _pub : null,
+    _deadline: (_deadline!=null && !isNaN(_deadline)) ? _deadline : null,
+    dagenTotDeadline, verlopen,
+    isNieuw: leeftijdDagen!=null && leeftijdDagen<7,
+    omschrijving: BESCHR[`${r.bron}|${r.tender_id}`] || null,
+  };
+}
+
+function scoreKlasse(s){ return s>=70?'s-hot':s>=40?'s-warm':'s-cool'; }
+
+/* ===================== filteren/sorteren ===================== */
+function getFiltered(rows){
+  let r = rows;
+  if(!state.toonNietRelevant) r = r.filter(x=>x.subsidieRelevant);
+  if(state.verbergVerlopen)   r = r.filter(x=>!x.verlopen);
+  if(state.cat)   r = r.filter(x=>x.categorieen.includes(state.cat));
+  if(state.bron)  r = r.filter(x=>x.bron===state.bron);
+  if(state.search){
+    const q = state.search.toLowerCase();
+    r = r.filter(x=> (x.titel||'').toLowerCase().includes(q) || (x.organisatie||'').toLowerCase().includes(q));
+  }
+  const sorted = r.slice();
+  if(state.sort==='score-desc') sorted.sort((a,b)=> b.score-a.score);
+  else if(state.sort==='datum-desc') sorted.sort((a,b)=> (b.datum||0)-(a.datum||0));
+  else if(state.sort==='deadline-asc') sorted.sort((a,b)=>{
+    if(a._deadline==null) return 1;
+    if(b._deadline==null) return -1;
+    return a._deadline-b._deadline;
+  });
+  return sorted;
+}
+
+/* ===================== CSV ===================== */
+function buildCsv(rows){
+  const kol = ['score','datum','deadline','bron','organisatie','titel','categorieen','locatie','status','url'];
+  const lijnen = [kol.join(';')];
+  for(const r of rows){
+    const rij = [
+      r.score, r.datum?fmtDate(new Date(r.datum).toISOString()):'', r.deadline||'',
+      r.bron, r.organisatie, r.titel, r.categorieen.join('|'), r.locatie, r.status, r.url,
+    ].map(v=>{
+      const s = String(v==null?'':v).replace(/"/g,'""');
+      return /[;"\n]/.test(s) ? `"${s}"` : s;
+    });
+    lijnen.push(rij.join(';'));
+  }
+  return lijnen.join('\n');
+}
+
+/* ===================== render ===================== */
+function renderCards(rows){
+  const relevant = rows.filter(r=>r.subsidieRelevant);
+  document.getElementById('cardRelevant').textContent = relevant.length;
+  document.getElementById('cardRelevantSub').textContent = `van ${rows.length} totaal gescrapete opdrachten`;
+  document.getElementById('cardTotaal').textContent = rows.length;
+  document.getElementById('cardNieuw').textContent = relevant.filter(r=>r.isNieuw).length;
+  document.getElementById('cardUrgent').textContent =
+    relevant.filter(r=>r.dagenTotDeadline!=null && r.dagenTotDeadline>=0 && r.dagenTotDeadline<=7).length;
+}
+
+function renderBars(containerId, obj, max){
+  const el = document.getElementById(containerId);
+  const entries = Object.entries(obj||{});
+  if(!entries.length){ el.innerHTML = '<div class="empty" style="padding:10px 0">Nog geen data</div>'; return; }
+  const top = entries.slice(-max).length===entries.length ? entries : entries.slice(0,max);
+  const groot = Math.max(...top.map(e=>e[1]), 1);
+  el.innerHTML = top.map(([label,count])=>`
+    <div class="bar-row">
+      <div class="lbl" title="${esc(label)}">${esc(label)}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.max(4,Math.round(count/groot*100))}%"></div></div>
+      <div class="cnt">${count}</div>
+    </div>`).join('');
+}
+
+function populateSelect(id, values, current){
+  const sel = document.getElementById(id);
+  const keep = sel.querySelector('option[value=""]').outerHTML;
+  sel.innerHTML = keep + values.map(v=>`<option value="${esc(v)}" ${v===current?'selected':''}>${esc(v)}</option>`).join('');
+}
+
+function renderTable(){
+  const filtered = getFiltered(RAW.enriched);
+  const start = (state.page-1)*state.pageSize;
+  const pageRows = filtered.slice(start, start+state.pageSize);
+  const tbody = document.getElementById('tableBody');
+
+  if(!pageRows.length){
+    tbody.innerHTML = '<tr><td colspan="9" class="empty">Geen resultaten met deze filters.</td></tr>';
+  } else {
+    tbody.innerHTML = pageRows.map((r,i)=>{
+      const rowKey = `${r.bron}|${r.tender_id}`;
+      const cats = r.categorieen.map(c=>`<span class="chip-cat">${esc(c)}</span>`).join('');
+      const deadlineCls = r.verlopen ? 'verlopen' : '';
+      let rijHtml = `
+        <tr class="clickable" data-key="${esc(rowKey)}">
+          <td class="score ${scoreKlasse(r.score)}">${r.score}</td>
+          <td>${r.datum?fmtDate(new Date(r.datum).toISOString()):'-'}</td>
+          <td class="${deadlineCls}">${fmtDate(r.deadline)}</td>
+          <td>${esc(r.organisatie)}</td>
+          <td class="titel-cel">${r.url?`<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.titel)}</a>`:esc(r.titel)}</td>
+          <td>${cats||'-'}</td>
+          <td>${esc(r.bron)}</td>
+          <td>${esc(r.locatie)}</td>
+          <td>${esc(r.status)}</td>
+        </tr>`;
+      if(state.openRow===rowKey){
+        const tekst = r.omschrijving ? esc(r.omschrijving) : '(geen omschrijving beschikbaar)';
+        const tw = r.trefwoorden ? `Trefwoorden: ${esc(r.trefwoorden)}` : '';
+        rijHtml += `<tr class="detail-row"><td colspan="9">${tekst}${tw?'<br><br>'+tw:''}</td></tr>`;
+      }
+      return rijHtml;
+    }).join('');
+  }
+
+  document.getElementById('resultCount').textContent = `${filtered.length} resultaten`;
+  const laatstePagina = Math.max(1, Math.ceil(filtered.length/state.pageSize));
+  document.getElementById('pageInfo').textContent = `Pagina ${state.page} van ${laatstePagina}`;
+  document.getElementById('prevBtn').disabled = state.page<=1;
+  document.getElementById('nextBtn').disabled = state.page>=laatstePagina;
+
+  tbody.querySelectorAll('tr.clickable').forEach(tr=>{
+    tr.addEventListener('click', ()=>{
+      const key = tr.getAttribute('data-key');
+      state.openRow = state.openRow===key ? null : key;
+      renderTable();
+    });
+  });
+}
+
+function renderAll(){
+  renderCards(RAW.enriched);
+  renderBars('catBars', SAMENVATTING?.per_categorie, 10);
+  renderBars('maandBars', SAMENVATTING?.per_maand, 12);
+  renderTable();
+}
+
+/* ===================== laden ===================== */
+async function laadJson(pad){
+  try{
+    const r = await fetch(pad, {cache:'no-store'});
+    if(!r.ok) return null;
+    return await r.json();
+  }catch(e){ return null; }
+}
+
+async function init(){
+  const [tenders, beschr, samenv] = await Promise.all([
+    laadJson('tenders.json'), laadJson('beschrijvingen.json'), laadJson('samenvatting.json'),
+  ]);
+
+  if(!tenders){
+    document.getElementById('tableBody').innerHTML =
+      '<tr><td colspan="9" class="empty">Kon tenders.json niet laden. Draai eerst de scrapers (zie README) of check of de GitHub Actions workflow al is gedraaid.</td></tr>';
+    return;
+  }
+
+  RAW = tenders;
+  BESCHR = beschr || {};
+  SAMENVATTING = samenv;
+  RAW.enriched = RAW.rows.map(enrichRow);
+
+  document.getElementById('lastUpdated').textContent =
+    'Laatst bijgewerkt: ' + (tenders.lastUpdated ? fmtDate(tenders.lastUpdated) : '-');
+
+  const bronnen = [...new Set(RAW.enriched.map(r=>r.bron))].sort();
+  const categorieen = [...new Set(RAW.enriched.flatMap(r=>r.categorieen))].sort();
+  populateSelect('bronFilter', bronnen, state.bron);
+  populateSelect('catFilter', categorieen, state.cat);
+
+  document.getElementById('catFilter').addEventListener('change', e=>{ state.cat=e.target.value; state.page=1; renderTable(); });
+  document.getElementById('bronFilter').addEventListener('change', e=>{ state.bron=e.target.value; state.page=1; renderTable(); });
+  document.getElementById('sortFilter').addEventListener('change', e=>{ state.sort=e.target.value; state.page=1; renderTable(); });
+  document.getElementById('searchInput').addEventListener('input', e=>{ state.search=e.target.value; state.page=1; renderTable(); });
+  document.getElementById('toonNietRelevant').addEventListener('change', e=>{ state.toonNietRelevant=e.target.checked; state.page=1; renderTable(); });
+  document.getElementById('verbergVerlopen').addEventListener('change', e=>{ state.verbergVerlopen=e.target.checked; state.page=1; renderTable(); });
+  document.getElementById('prevBtn').addEventListener('click', ()=>{ if(state.page>1){ state.page--; renderTable(); } });
+  document.getElementById('nextBtn').addEventListener('click', ()=>{ state.page++; renderTable(); });
+  document.querySelectorAll('th[data-key]').forEach(th=>{
+    th.addEventListener('click', ()=>{
+      const key = th.getAttribute('data-key');
+      const map = {score:'score-desc', datum:'datum-desc', deadline:'deadline-asc'};
+      if(map[key]){ state.sort = map[key]; document.getElementById('sortFilter').value = map[key]; renderTable(); }
+    });
+  });
+  document.getElementById('csvBtn').addEventListener('click', ()=>{
+    const csv = buildCsv(getFiltered(RAW.enriched));
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'subsidies-opdrachten.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  renderAll();
+}
+
+init();
+</script>
+</body>
+</html>
