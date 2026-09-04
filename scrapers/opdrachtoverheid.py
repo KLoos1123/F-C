@@ -3,21 +3,19 @@
 www.opdrachtoverheid.nl is een Nuxt/Pinia-SPA (geen server-side gerenderde
 lijst) die praat met een los API-domein: kbenp-match-api.azurewebsites.net
 ("KBenP" is de initiatiefnemer). Het overzicht laadt via een client-side
-zoekaanroep op basis van een generieke filter-DSL
-(`{single, filters:[{field_name, value, operator}], order_by}`) -- bevestigd
-voor het organisatie/locatie-endpoint (`/search/vacanciesLocation`), maar het
-exacte endpoint voor de VOLLEDIGE opdrachtenlijst kon niet worden vastgesteld
-door de JS-bundels statisch te lezen (geen live browser beschikbaar tijdens
-het bouwen van deze scraper).
+call naar `v7/vacancies/search`. Deze scraper onderschept dat live
+netwerkverkeer -- zoals magnit.py -- door naar de homepage te navigeren
+(waar de zoekwidget staat) en te wachten tot het netwerk stil is.
 
-Daarom onderschept deze scraper -- zoals magnit.py -- het live netwerkverkeer:
-navigeer naar de homepage (waar de zoekwidget staat), wacht tot het netwerk
-stil is, en pak de grootste JSON-array die de API in die tijd teruggaf. Velden
-worden generiek herkend (meerdere kandidaat-namen per veld, NL en EN) omdat de
-exacte respons-vorm niet vooraf bekend is.
+Bevestigd op basis van een echte run (zie PR #1): Opdracht Overheid is zelf
+een aggregator boven andere VMS-systemen (het voorbeelditem tijdens het
+bouwen kwam van "circle8", een Salesforce-VMS net als stedin_vms.py) --
+`tender_id` is geprefixt met het bronsysteem (bv. "circle8_..."),
+`tender_source` noemt het, en `tender_url` wijst naar de oorspronkelijke
+plek (die gebruiken we rechtstreeks, in plaats van zelf een URL te
+construeren). Volledige veldenlijst uit dat voorbeelditem staat in
+VELD_KANDIDATEN hieronder; niet elk veld is bij elke bron gevuld.
 
-Dit is dus een best-effort eerste versie: valideer/verfijn aan de hand van de
-eerste echte run in GitHub Actions (zie debug_opdrachtoverheid.png bij falen).
 Geen login nodig om te bladeren.
 """
 
@@ -32,22 +30,23 @@ API_HOST = "kbenp-match-api.azurewebsites.net"
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
-# Kandidaat-veldnamen per uitvoerveld, in volgorde van voorkeur.
+# Bevestigde veldnamen (zie moduledocstring) uit v7/vacancies/search, met een
+# paar generieke fallbacks ervoor in geval een andere onderliggende bron
+# (ander VMS) net andere namen gebruikt.
 VELD_KANDIDATEN = {
-    "id": ["id", "vacancyId", "vacancy_id", "jobId", "referenceNumber", "reference", "guid"],
-    "titel": ["title", "titel", "jobTitle", "vacancyTitle", "functieTitel", "name"],
-    "organisatie": ["organizationName", "organisationName", "organizationDisplayName",
-                     "organisatie", "clientName", "buyingOrganization",
-                     "tender_buying_organization", "organization"],
-    "status": ["status", "state", "publishStatus"],
-    "deadline": ["deadline", "closingDate", "applicationDeadline", "reactionDeadline",
-                 "endDate", "closeDate"],
-    "publicatiedatum": ["publishDate", "publishedAt", "publicationDate", "startDate",
-                         "createdAt"],
-    "locatie": ["location", "locatie", "place", "region", "city"],
-    "organisatie_slug": ["organizationSlug", "organisationSlug", "organizationUrlSlug"],
-    "titel_slug": ["jobtitleSlug", "titleSlug", "jobTitleSlug"],
+    "id": ["tender_id", "id"],
+    "titel": ["tender_name", "title", "titel"],
+    "organisatie": ["tender_buying_organization", "organizationName", "organisatie"],
+    "status": ["tender_status", "status"],
+    "deadline": ["tender_date", "deadline", "closingDate"],
+    "publicatiedatum": ["tender_first_seen", "publishDate", "publishedAt"],
+    "locatie": ["tender_job_location", "organization_location", "location"],
+    "url": ["tender_url", "url"],
+    "omschrijving_html": ["tender_description_html"],
+    "omschrijving_tekst": ["tender_overview", "tender_requirements", "tender_other_information"],
 }
+
+_HTML_TAG = re.compile(r"<[^>]+>")
 
 
 def _eerste(item, namen):
@@ -57,11 +56,12 @@ def _eerste(item, namen):
     return None
 
 
-def _slug(tekst):
-    if not tekst:
+def _tekst_uit_html(html):
+    if not html:
         return None
-    s = re.sub(r"[^a-z0-9]+", "-", str(tekst).lower()).strip("-")
-    return s or None
+    tekst = _HTML_TAG.sub(" ", html)
+    tekst = re.sub(r"\s+", " ", tekst).strip()
+    return tekst or None
 
 
 def _uit_item(item):
@@ -74,23 +74,23 @@ def _uit_item(item):
     if iid is None or not titel:
         return None
 
-    org = _eerste(item, VELD_KANDIDATEN["organisatie"])
-    org_slug = _eerste(item, VELD_KANDIDATEN["organisatie_slug"]) or _slug(org)
-    titel_slug = _eerste(item, VELD_KANDIDATEN["titel_slug"]) or _slug(titel)
-    url = (f"{BASE}/inhuuropdracht/{org_slug}/{titel_slug}/{iid}"
-           if org_slug and titel_slug else BASE)
+    omschrijving = (_tekst_uit_html(_eerste(item, VELD_KANDIDATEN["omschrijving_html"]))
+                    or _eerste(item, VELD_KANDIDATEN["omschrijving_tekst"]))
 
-    return {
+    rij = {
         "tender_id": str(iid),
         "nummer": None,
         "titel": str(titel),
-        "organisatie": org,
+        "organisatie": _eerste(item, VELD_KANDIDATEN["organisatie"]),
         "status": _eerste(item, VELD_KANDIDATEN["status"]) or "Open",
         "deadline": _eerste(item, VELD_KANDIDATEN["deadline"]),
         "publicatiedatum": _eerste(item, VELD_KANDIDATEN["publicatiedatum"]),
         "locatie": _eerste(item, VELD_KANDIDATEN["locatie"]),
-        "url": url,
+        "url": _eerste(item, VELD_KANDIDATEN["url"]) or BASE,
     }
+    if omschrijving:
+        rij["omschrijving"] = omschrijving
+    return rij
 
 
 def _grootste_lijst(obj):
@@ -146,14 +146,11 @@ def haal_op():
 
         browser.close()
 
-    # Eerste echte run (zie PR #1) onderschepte drie responses van deze host:
-    #   v7/vacancies/counts        (17)  -- aantallen per categorie, geen vacatures
-    #   v7/vacancies/search        (25)  -- de eigenlijke lijst
-    #   search/vacanciesLocation  (427)  -- organisaties/locaties (uit _organisaties-achtig
-    #                                       endpoint), geen vacature-velden
-    # "grootste lijst" koos toen dus de verkeerde (vacanciesLocation): 0 opdrachten
-    # na het filteren op id+titel. /vacancies/search met naam winnen altijd van de
-    # rest; alleen als die er niet bij zit vallen we terug op de grootste lijst.
+    # v7/vacancies/search is de bevestigde lijst-endpoint (zie moduledocstring);
+    # andere responses op dezelfde host (bv. v7/vacancies/counts, of
+    # search/vacanciesLocation met organisatie/locatie-data) leveren geen
+    # vacature-velden. Kies 'm expliciet wanneer gezien; anders de grootste
+    # lijst als vangnet voor het geval het endpoint ooit verandert.
     kandidaten = []
     beste_naam_match = False
     for url, data in gevangen:
@@ -177,10 +174,9 @@ def haal_op():
     print(f"  {len(rijen)} opdrachten gevonden")
 
     if not rijen and kandidaten:
-        # VELD_KANDIDATEN mist blijkbaar de echte veldnamen van deze respons
-        # (dat kon niet vooraf worden vastgesteld, zie moduledocstring) --
-        # dump de sleutels + een voorbeeld zodat de volgende run direct de
-        # juiste namen aan VELD_KANDIDATEN toevoegt i.p.v. nog een keer gokken.
+        # Veldnamen kwamen niet overeen -- dump sleutels + voorbeeld zodat
+        # VELD_KANDIDATEN in één keer met de echte namen aangevuld kan worden
+        # i.p.v. nog een CI-cyclus blind te gokken.
         voorbeeld = kandidaten[0]
         print(f"  0 rijen ondanks {len(kandidaten)} kandidaten -- veldnamen "
               f"komen niet overeen met VELD_KANDIDATEN. Sleutels van item 0: "
