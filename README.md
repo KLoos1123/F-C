@@ -43,6 +43,12 @@ Striive, freelance.nl, NS, Stedin, Stedin-VMS, TenderNed, Inhuurdesk Regio
 (Noord-Holland Noord / Noordoost-Brabant / Zuidoost-Brabant), Werken in
 Gelderland, FlexWestBrabant, Magnit.
 
+Dit dekt de vier genoemde bronnen (flextender, werkeningelderland =
+Gelderland, opdrachtoverheid, tendernet): een losstaand "tendernet"-platform
+kon niet gevonden worden (`tendernet.nl` heeft geen DNS, `tendernet.eu` lijkt
+een ongerelateerd/geparkeerd domein) en is daarom gelijkgesteld aan TenderNed,
+dat al meedraait.
+
 Nieuw: `scrapers/opdrachtoverheid.py` (opdrachtoverheid.nl). **Let op:** dit
 platform is een Nuxt/Pinia-SPA; het exacte lijst-endpoint kon niet worden
 vastgesteld door de JS statisch te lezen (geen browserverkeer mogelijk vanuit
@@ -51,13 +57,6 @@ live netwerkverkeer op de homepage, net als `magnit.py` al deed voor Magnit.
 Dit is dus een best-effort eerste versie -- controleer de eerste paar
 Actions-runs (of `debug_opdrachtoverheid.png` bij een mislukte run) en verfijn
 zo nodig de veldherkenning in `VELD_KANDIDATEN`.
-
-**Nog niet gebouwd:** een vierde genoemde bron, "tendernet" -- er bestaat
-geen `tendernet.nl` (resolvet niet) en `tendernet.eu` lijkt een geparkeerd/
-niet-gerelateerd domein (certificaat hoort niet bij die naam). Waarschijnlijk
-bedoeld is TenderNed (al aanwezig) of een ander platform onder een andere
-naam -- graag de juiste URL bevestigen, dan volgt de scraper in dezelfde
-structuur.
 
 ## Classificatie
 
