@@ -21,6 +21,7 @@ eerste echte run in GitHub Actions (zie debug_opdrachtoverheid.png bij falen).
 Geen login nodig om te bladeren.
 """
 
+import json
 import re
 from playwright.sync_api import sync_playwright
 
@@ -174,4 +175,16 @@ def haal_op():
 
     rijen = [r for r in (_uit_item(i) for i in kandidaten) if r]
     print(f"  {len(rijen)} opdrachten gevonden")
+
+    if not rijen and kandidaten:
+        # VELD_KANDIDATEN mist blijkbaar de echte veldnamen van deze respons
+        # (dat kon niet vooraf worden vastgesteld, zie moduledocstring) --
+        # dump de sleutels + een voorbeeld zodat de volgende run direct de
+        # juiste namen aan VELD_KANDIDATEN toevoegt i.p.v. nog een keer gokken.
+        voorbeeld = kandidaten[0]
+        print(f"  0 rijen ondanks {len(kandidaten)} kandidaten -- veldnamen "
+              f"komen niet overeen met VELD_KANDIDATEN. Sleutels van item 0: "
+              f"{sorted(voorbeeld.keys()) if isinstance(voorbeeld, dict) else type(voorbeeld)}")
+        print(f"  voorbeelditem: {json.dumps(voorbeeld, ensure_ascii=False)[:1000]}")
+
     return rijen
