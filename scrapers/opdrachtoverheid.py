@@ -50,9 +50,20 @@ _HTML_TAG = re.compile(r"<[^>]+>")
 
 
 def _eerste(item, namen):
+    """Eerste bruikbare waarde uit item voor de gegeven kandidaat-veldnamen.
+
+    Alleen scalars (str/int/float/bool): Opdracht Overheid aggregeert meerdere
+    onderliggende VMS'en (zie moduledocstring), en niet elke bron levert
+    hetzelfde veld als platte tekst -- bv. organization_location bleek in de
+    praktijk soms een geneste dict, die db.py's sqlite-binding niet aankan
+    (en die je toch niet zomaar leesbaar kunt tonen). Val in dat geval door
+    naar de volgende kandidaat i.p.v. te crashen of een Python-repr op te
+    slaan.
+    """
     for naam in namen:
-        if naam in item and item[naam] not in (None, ""):
-            return item[naam]
+        waarde = item.get(naam)
+        if waarde not in (None, "") and isinstance(waarde, (str, int, float, bool)):
+            return waarde
     return None
 
 
