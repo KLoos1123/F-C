@@ -68,7 +68,9 @@ def _uit_item(item):
         return None
     iid = _eerste(item, VELD_KANDIDATEN["id"])
     titel = _eerste(item, VELD_KANDIDATEN["titel"])
-    if not iid or not titel:
+    # "is None" i.p.v. truthiness: een id van 0 is geldig maar valt anders
+    # (net als een lege titel-string) verkeerd door de boolean-check heen.
+    if iid is None or not titel:
         return None
 
     org = _eerste(item, VELD_KANDIDATEN["organisatie"])
@@ -143,11 +145,25 @@ def haal_op():
 
         browser.close()
 
+    # Eerste echte run (zie PR #1) onderschepte drie responses van deze host:
+    #   v7/vacancies/counts        (17)  -- aantallen per categorie, geen vacatures
+    #   v7/vacancies/search        (25)  -- de eigenlijke lijst
+    #   search/vacanciesLocation  (427)  -- organisaties/locaties (uit _organisaties-achtig
+    #                                       endpoint), geen vacature-velden
+    # "grootste lijst" koos toen dus de verkeerde (vacanciesLocation): 0 opdrachten
+    # na het filteren op id+titel. /vacancies/search met naam winnen altijd van de
+    # rest; alleen als die er niet bij zit vallen we terug op de grootste lijst.
     kandidaten = []
+    beste_naam_match = False
     for url, data in gevangen:
         lijst = _grootste_lijst(data)
-        if len(lijst) > len(kandidaten):
+        naam_match = "vacancies/search" in url.lower()
+        beter = (naam_match and not beste_naam_match) or (
+            naam_match == beste_naam_match and len(lijst) > len(kandidaten)
+        )
+        if beter:
             kandidaten = lijst
+            beste_naam_match = naam_match
             print(f"  kandidaat-lijst ({len(lijst)} items) via {url}")
 
     if not kandidaten:
