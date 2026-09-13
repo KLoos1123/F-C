@@ -147,7 +147,14 @@ def haal_op():
             page.goto(BASE + "/", timeout=60000, wait_until="networkidle")
         except Exception:
             pass  # networkidle kan timeouten op een pagina met polling/analytics
-        page.wait_for_timeout(3000)
+        try:
+            page.wait_for_timeout(3000)
+        except Exception:
+            pass  # pagina kan crashen tijdens deze buffer (Page crashed) --
+                  # de match-API-responses zijn dan meestal al onderschept
+                  # (die komen binnen zodra de homepage begint te laden, ruim
+                  # voor deze 3s-marge), dus we gaan gewoon door met wat er is
+                  # i.p.v. de hele bron te laten mislukken.
 
         if not gevangen:
             try:
