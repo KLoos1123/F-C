@@ -43,6 +43,12 @@ Striive, freelance.nl, NS, Stedin, Stedin-VMS, TenderNed, Inhuurdesk Regio
 (Noord-Holland Noord / Noordoost-Brabant / Zuidoost-Brabant), Werken in
 Gelderland, FlexWestBrabant, Magnit.
 
+Dit dekt de vier genoemde bronnen (flextender, werkeningelderland =
+Gelderland, opdrachtoverheid, tendernet): een losstaand "tendernet"-platform
+kon niet gevonden worden (`tendernet.nl` heeft geen DNS, `tendernet.eu` lijkt
+een ongerelateerd/geparkeerd domein) en is daarom gelijkgesteld aan TenderNed,
+dat al meedraait.
+
 Nieuw: `scrapers/opdrachtoverheid.py` (opdrachtoverheid.nl). **Let op:** dit
 platform is een Nuxt/Pinia-SPA; het exacte lijst-endpoint kon niet worden
 vastgesteld door de JS statisch te lezen (geen browserverkeer mogelijk vanuit
@@ -51,13 +57,6 @@ live netwerkverkeer op de homepage, net als `magnit.py` al deed voor Magnit.
 Dit is dus een best-effort eerste versie -- controleer de eerste paar
 Actions-runs (of `debug_opdrachtoverheid.png` bij een mislukte run) en verfijn
 zo nodig de veldherkenning in `VELD_KANDIDATEN`.
-
-**Nog niet gebouwd:** een vierde genoemde bron, "tendernet" -- er bestaat
-geen `tendernet.nl` (resolvet niet) en `tendernet.eu` lijkt een geparkeerd/
-niet-gerelateerd domein (certificaat hoort niet bij die naam). Waarschijnlijk
-bedoeld is TenderNed (al aanwezig) of een ander platform onder een andere
-naam -- graag de juiste URL bevestigen, dan volgt de scraper in dezelfde
-structuur.
 
 ## Classificatie
 
@@ -128,6 +127,39 @@ locatie, url, eerst_gezien, laatst_gezien) plus `subsidie_relevant`,
 `beschrijvingen`-tabel: volledige omschrijvingen apart (dezelfde reden als in
 Scrappingtool-v2 -- hoofdtabel licht houden, en input voor de latere
 AI-matching met cv's).
+
+## Supabase + Copilot Studio (optioneel)
+
+SQLite + het statische dashboard werken op zichzelf, zonder Supabase. Wil je
+de data ook raadpleegbaar maken voor een Copilot Studio-agent (of een ander
+extern systeem), zet dan Supabase erbij:
+
+1. **Maak een Supabase-project** (of hergebruik een bestaand project -- dit
+   tool gebruikt eigen tabelnamen, dus dat kan naast andere data).
+2. **Draai `supabase_schema.sql` eenmalig** in de Supabase SQL editor
+   (Dashboard → SQL Editor → New query, plak het bestand, Run). Dit zet de
+   `tenders`/`beschrijvingen`-tabellen, de `upsert_tenders_bulk`-functie en de
+   RLS-policies op. Lokaal tegen een losse Postgres 16 getest (inclusief dat
+   service_role wél en anon géén schrijftoegang heeft) -- zie de commit-
+   geschiedenis voor hoe.
+3. **Twee keys, twee doelen** (Dashboard → Settings → API Keys):
+   - **`service_role`** → GitHub-secrets `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`
+     op deze repo (Settings → Secrets and variables → Actions). Deze key
+     omzeilt RLS -- alleen voor de scraper-workflow, nooit client-side
+     gebruiken.
+   - **`anon`** (public) → voor de Copilot Studio-connector. Deze key kan alleen
+     lezen (RLS staat schrijven/de RPC-functie voor deze rol niet toe), dus
+     veilig om in een agent-configuratie te zetten.
+4. **Importeer `copilot-studio-tenders-api.yaml`** als REST API tool (of
+   custom connector) in Copilot Studio. Vervang eerst `JOUW-PROJECT-REF` in
+   dat bestand door je eigen Supabase project-ref. Bij de auth-configuratie:
+   - `apikey` (query parameter) → de `anon`-key
+   - `Authorization` (header) → letterlijk `Bearer <anon-key>` (inclusief
+     het woord "Bearer")
+
+   De volgende scraper-run (of handmatige trigger) vult de tabellen; daarna
+   kan de agent opdrachten filteren op relevantie/categorie/bron/locatie via
+   de acties in die spec.
 
 ## Tests
 
