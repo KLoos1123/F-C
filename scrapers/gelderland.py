@@ -6,6 +6,7 @@ li.vacancies__item met detailregels (Reageren t/m, Plaatsingsdatum).
 """
 
 import re
+import time
 from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
 
@@ -53,6 +54,19 @@ def _detail(kaart, label):
     return None
 
 
+def _get(ctx, url):
+    """GET met één retry (zelfde 'twee pogingen'-patroon als mercell.py/
+    stedin_vms.py voor hun login): het WordPress-endpoint is af en toe traag/
+    tijdelijk niet bereikbaar (timeout op pagina 1 gezien in een echte
+    CI-run), en één hik zou anders deze hele bron laten mislukken i.p.v.
+    alleen deze pagina-fetch."""
+    try:
+        return ctx.request.get(url, timeout=30000)
+    except Exception:
+        time.sleep(3)
+        return ctx.request.get(url, timeout=30000)
+
+
 def _uit_item(li):
     a = li.find("a", href=True)
     if not a or "/opdracht/" not in a["href"]:
@@ -88,7 +102,7 @@ def haal_op():
 
         for pagina in range(1, MAX_PAGINA + 1):
             url = LIJST if pagina == 1 else f"{LIJST}page/{pagina}/"
-            r = ctx.request.get(url, timeout=30000)
+            r = _get(ctx, url)
             if not r.ok:
                 break
 
