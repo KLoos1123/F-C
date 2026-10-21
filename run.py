@@ -13,7 +13,12 @@ import subprocess
 import traceback
 from datetime import datetime, timezone, timedelta
 
-MAX_MISLUKT = 3
+# mercell, striive en magnit falen hier permanent (hun secrets staan nog niet
+# in deze repo, zie README) -- dat is al 3 van de tolerantie, zonder dat er
+# iets structureel mis is. Zonder marge daarbovenop laat elke losse transiente
+# hik elders (bv. een tijdelijke 504 bij een andere bron) de hele run
+# onterecht rood uitslaan.
+MAX_MISLUKT = 5
 
 import db
 import beschrijvingen
