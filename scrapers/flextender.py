@@ -21,11 +21,13 @@ UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 
 # ---------------------------------------------------------------- token
 
-def _get_met_retry(sessie, url, pogingen=2):
-    """GET met één retry (zelfde 'twee pogingen'-patroon als elders in dit
-    project, o.a. gelderland.py): flextender.nl gaf hier een keer een 504
-    Gateway Time-out (CI-run 2026-10-21), en één hik zou anders deze hele
-    bron laten mislukken i.p.v. alleen deze pagina-fetch."""
+def _get_met_retry(sessie, url, pogingen=4):
+    """GET met oplopende retries: één retry van 3s bleek niet genoeg voor
+    een 504 Gateway Time-out op flextender.nl (dezelfde fout kwam terug op
+    de verificatierun vlak erna, CI-run 2026-10-21) -- oplopende backoff
+    geeft een langere storing meer ruimte om te herstellen voordat we deze
+    hele bron laten mislukken."""
+    wachttijd = 5
     for poging in range(pogingen):
         try:
             r = sessie.get(url, headers={"user-agent": UA}, timeout=30)
@@ -34,7 +36,8 @@ def _get_met_retry(sessie, url, pogingen=2):
         except Exception:
             if poging + 1 == pogingen:
                 raise
-            time.sleep(3)
+            time.sleep(wachttijd)
+            wachttijd *= 2
 
 
 def _token(sessie):
