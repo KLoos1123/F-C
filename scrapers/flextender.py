@@ -8,6 +8,7 @@ in de UI zijn alleen CSS-hidden divs, geen aparte requests).
 """
 
 import re
+import time
 import requests
 from bs4 import BeautifulSoup
 
@@ -20,9 +21,27 @@ UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 
 # ---------------------------------------------------------------- token
 
+def _get_met_retry(sessie, url, pogingen=4):
+    """GET met oplopende retries: één retry van 3s bleek niet genoeg voor
+    een 504 Gateway Time-out op flextender.nl (dezelfde fout kwam terug op
+    de verificatierun vlak erna, CI-run 2026-10-21) -- oplopende backoff
+    geeft een langere storing meer ruimte om te herstellen voordat we deze
+    hele bron laten mislukken."""
+    wachttijd = 5
+    for poging in range(pogingen):
+        try:
+            r = sessie.get(url, headers={"user-agent": UA}, timeout=30)
+            r.raise_for_status()
+            return r
+        except Exception:
+            if poging + 1 == pogingen:
+                raise
+            time.sleep(wachttijd)
+            wachttijd *= 2
+
+
 def _token(sessie):
-    r = sessie.get(PAGE_URL, headers={"user-agent": UA}, timeout=30)
-    r.raise_for_status()
+    r = _get_met_retry(sessie, PAGE_URL)
     soup = BeautifulSoup(r.text, "lxml")
     veld = soup.find("input", {"name": "kbs_flx_widget_config"})
     if not veld or not veld.get("value"):

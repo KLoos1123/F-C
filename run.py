@@ -13,11 +13,17 @@ import subprocess
 import traceback
 from datetime import datetime, timezone, timedelta
 
-MAX_MISLUKT = 3
+# mercell, striive en magnit falen hier permanent (hun secrets staan nog niet
+# in deze repo, zie README) -- dat is al 3 van de tolerantie, zonder dat er
+# iets structureel mis is. Zonder marge daarbovenop laat elke losse transiente
+# hik elders (bv. een tijdelijke 504 bij een andere bron) de hele run
+# onterecht rood uitslaan.
+MAX_MISLUKT = 5
 
 import db
 import beschrijvingen
 import classificatie
+import supabase_sync
 from scrapers import (mercell, flextender, hero, striive, freelancenl, ns,
                       stedin, tenderned, inhuurdesk_regio, gelderland,
                       flexwestbrabant, magnit, stedin_vms, opdrachtoverheid)
@@ -109,6 +115,27 @@ def main():
             print(f"  {r[0]}: {r[1]}")
     except Exception as e:
         print(f"  omschrijvingen MISLUKT: {e}")
+
+    # Optioneel: alleen actief als SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY gezet
+    # zijn (zie README). Zonder Supabase blijft de SQLite-database + het
+    # statische dashboard gewoon werken -- dit voedt alleen externe
+    # raadpleging (bv. een Copilot Studio-agent via de anon-key). Simpelweg
+    # niet ingesteld telt niet als mislukte bron (anders zou een MAX_MISLUKT-run
+    # onnodig rood kunnen worden op een integratie die niemand heeft aangezet);
+    # eenmaal ingesteld en dan toch falend telt wel gewoon mee.
+    print("\n=== supabase ===")
+    if not supabase_sync.geconfigureerd():
+        print("  niet ingesteld (SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY ontbreken); overgeslagen")
+    else:
+        try:
+            n_tenders = supabase_sync.sync_tenders(alles)
+            print(f"  {n_tenders} tenders gesynct")
+            n_oms = supabase_sync.sync_beschrijvingen(met_oms)
+            print(f"  {n_oms} omschrijvingen gesynct")
+        except Exception as e:
+            print(f"  Supabase-sync MISLUKT: {e}")
+            traceback.print_exc()
+            mislukt.append("Supabase")
 
     print("\n=== export ===")
     alle = db.alle_rijen()
