@@ -14,6 +14,7 @@ echte browsercontext.
 import os
 import re
 import json
+import time
 from playwright.sync_api import sync_playwright
 
 BRON = "freelance.nl"
@@ -247,19 +248,23 @@ def _zoek_publiek(ctx, offset, limit):
             "offset": offset,
         },
     }
-    resp = ctx.request.post(
-        API,
-        data=json.dumps(payload),
-        headers={
-            "content-type": "application/json",
-            "accept": "application/json",
-            "referer": f"{APP}/opdrachten",
-        },
-        timeout=30000,
-    )
-    if not resp.ok:
-        raise RuntimeError(f"public-api gaf {resp.status}")
-    return resp.json()
+    headers = {
+        "content-type": "application/json",
+        "accept": "application/json",
+        "referer": f"{APP}/opdrachten",
+    }
+    # Twee pogingen (zelfde patroon als elders in dit project): de WAF gaf hier
+    # een keer een losse 403 terug ondanks de echte browsercontext (CI-run
+    # 2026-10-29), en één hik zou anders deze hele bron laten mislukken i.p.v.
+    # alleen deze pagina-fetch.
+    for poging in range(2):
+        resp = ctx.request.post(API, data=json.dumps(payload), headers=headers,
+                                timeout=30000)
+        if resp.ok:
+            return resp.json()
+        if poging == 1:
+            raise RuntimeError(f"public-api gaf {resp.status}")
+        time.sleep(3)
 
 
 def _publiek():
