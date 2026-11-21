@@ -46,6 +46,8 @@ jobs:
           FREELANCE_WACHTWOORD: ${{ secrets.FREELANCE_WACHTWOORD }}
           STEDINVMS_EMAIL: ${{ secrets.STEDINVMS_EMAIL }}
           STEDINVMS_WACHTWOORD: ${{ secrets.STEDINVMS_WACHTWOORD }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: python run.py
 
       - name: CSV en debug uploaden
@@ -72,14 +74,23 @@ jobs:
           git pull --rebase --autostash
           git push
 
+      # continue-on-error op de drie Pages-stappen: vóórdat Settings -> Pages ->
+      # Source: GitHub Actions eenmalig handmatig is aangezet (moet door een mens
+      # met repo-adminrechten, een workflow-token kan dat niet), faalt het
+      # deployen met "Resource not accessible by integration" / 404. Dat is een
+      # verwachte, tijdelijke toestand -- de scrapers/database/dashboard-commit
+      # hierboven zijn het eigenlijke werk en moeten daarom niet als mislukt
+      # gelden zolang alleen het publiceren nog niet kan.
       - name: Pages configureren
         if: always()
+        continue-on-error: true
         uses: actions/configure-pages@v5
         with:
           enablement: true
 
       - name: web/ uploaden (dashboard + tenders.json)
         if: always()
+        continue-on-error: true
         uses: actions/upload-pages-artifact@v3
         with:
           path: web
@@ -87,4 +98,5 @@ jobs:
       - name: Deployen naar Pages
         id: deployment
         if: always()
+        continue-on-error: true
         uses: actions/deploy-pages@v4
